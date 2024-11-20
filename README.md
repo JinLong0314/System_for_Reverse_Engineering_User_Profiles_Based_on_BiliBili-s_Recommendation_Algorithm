@@ -26,7 +26,7 @@
 1. 克隆项目到本地: 
 ```bash
 git clone 
-cd [项目目录]
+cd System_for_Reverse_Engineering_User_Profiles_Based_on_BiliBili-s_Recommendation_Algorithm
 ```
 
 2. 安装依赖: 
