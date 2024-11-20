@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>基于 BiliBili 平台推荐算法机制反向推导用户画像系统</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.2/echarts.min.js"></script>
+    <style>
+        .status-box {
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .chart-container {
+            height: 450px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+        }
+        .progress {
+            height: 20px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .progress-bar {
+            background-color: #28a745;
+            transition: width 0.3s ease;
+        }
+        
+        #progressInfo, #currentVideo {
+            margin-top: 5px;
+        }
+        #analyzeProgressInfo {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        #statusMessage {
+            max-width: 50%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #userProfile pre {
+            background-color: #f8f9fa;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 20px;
+            white-space: pre-wrap;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #progressContainer {
+            order: 1;
+        }
+        
+        #analysisSection {
+            order: 2;
+        }
+        
+        #progressContainer.above-analysis {
+            order: 0;
+        }
+        /* 引入 Bootstrap Icons */
+        @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css");
+
+        .user-profile-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #4a90e2, #2c5282);
+            color: white;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .profile-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .profile-content {
+            padding: 20px;
+        }
+
+        .profile-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4a90e2;
+        }
+
+        .profile-section h4 {
+            color: #2c5282;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .profile-section ul {
+            list-style: none;
+            padding-left: 0;
+            margin-bottom: 0;
+        }
+
+        .profile-section li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .profile-section li:before {
+            content: "•";
+            color: #4a90e2;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .profile-stat {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #e3f2fd;
+            border-radius: 15px;
+            color: #1976d2;
+            font-size: 0.9rem;
+            margin-left: 8px;
+        }
+
+        #upList .list-group-item {
+            transition: all 0.3s ease;
+        }
+
+        #upList .list-group-item:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+
+        .modal-content {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #4a90e2, #2c5282);
+            color: white;
+            border-radius: 15px 15px 0 0;
+            border: none;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .list-group-item {
+            border: none;
+            margin-bottom: 8px;
+            border-radius: 8px !important;
+            transition: all 0.3s ease;
+        }
+
+        .list-group-item:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+
+        .badge {
+            font-size: 0.85rem;
+            padding: 6px 12px;
+        }
+
+        .profile-section .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            margin-left: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .profile-section .btn-sm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+
+        .up-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .up-list-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            text-decoration: none;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .up-list-item:last-child {
+            border-bottom: none;
+        }
+
+        .up-list-item:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+
+        .up-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4a90e2, #2c5282);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .up-info {
+            flex-grow: 1;
+        }
+
+        .up-name {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 3px;
+            color: #333;
+        }
+
+        .up-rank {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .rank-1 {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: white;
+        }
+
+        .rank-2 {
+            background: linear-gradient(135deg, #C0C0C0, #A9A9A9);
+            color: white;
+        }
+
+        .rank-3 {
+            background: linear-gradient(135deg, #CD7F32, #8B4513);
+            color: white;
+        }
+
+        .rank-other {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        #crawlNum:invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+        
+        .input-group {
+            height: 38px;  /* 与按钮高度保持一致 */
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .input-group {
+            flex-shrink: 0;
+        }
+
+        .input-group-text {
+            background-color: #e9ecef;
+            border-color: #ced4da;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .form-control:focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+
+        .button-group {
+            flex-grow: 0;
+        }
+
+        .btn {
+            padding: 0.375rem 1rem;
+            font-weight: 500;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 移除 mb-3 类，因为我们现在使用 gap 来控制间距 */
+        .btn.mb-3 {
+            margin-bottom: 0 !important;
+        }
+
+        /* 输入框验证样式 */
+        #crawlNum:invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+        
+        /* 确保所有元素高度一致 */
+        .input-group, .btn, .form-control, .input-group-text {
+            height: 38px;
+            line-height: 38px;
+        }
+
+        /* 响应式布局 */
+        @media (max-width: 768px) {
+            .control-panel {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .input-group {
+                width: 100% !important;
+            }
+            
+            .button-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+
+        .profile-section pre {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            margin: 0;
+        }
+
+        .profile-section h5 {
+            margin-bottom: 1rem;
+            color: #2c5282;
+            font-weight: 600;
+        }
+
+        .stats-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .stats-section h5 {
+            color: #2c5282;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .stats-item {
+            position: relative;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stats-label {
+            font-weight: 500;
+            color: #333;
+            z-index: 1;
+        }
+
+        .stats-value {
+            font-weight: 600;
+            color: #2c5282;
+            z-index: 1;
+        }
+
+        .stats-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: rgba(74, 144, 226, 0.1);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stats-card {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stats-card-title {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .stats-card-value {
+            color: #2c5282;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .distribution-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .distribution-item {
+            position: relative;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .distribution-label {
+            font-weight: 500;
+            color: #333;
+            z-index: 1;
+        }
+
+        .distribution-value {
+            font-weight: 600;
+            color: #2c5282;
+            z-index: 1;
+        }
+
+        .distribution-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: rgba(74, 144, 226, 0.1);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .stats-overview {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">基于 BiliBili 平台推荐算法机制反向推导用户画像系统</h1>
+        
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h4 class="alert-heading">使用说明</h4>
+                    <p>1. 点击"开始爬取数据"按钮开始收集B站视频数据</p>
+                    <p>2. 使用B站手机APP扫描二维码登录</p>
+                    <p>3. 等待数据爬取完成</p>
+                    <p>4. 点击"分析数据"按钮查看分析结果</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="control-panel d-flex align-items-center gap-3">
+                    <div class="input-group" style="width: auto;">
+                        <span class="input-group-text">爬取数量</span>
+                        <input type="number" class="form-control" id="crawlNum" value="100" min="10" max="1000" style="width: 100px;">
+                    </div>
+                    <div class="button-group d-flex gap-2">
+                        <button id="startCrawl" class="btn btn-primary">开始爬取数据</button>
+                        <button id="analyze" class="btn btn-success" disabled>分析数据</button>
+                        <button id="clearData" class="btn btn-danger">清除数据</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div id="progressContainer" style="display: none;">
+                    <h4 id="progressTitle">爬取进度</h4>
+                    <div class="progress mb-2">
+                        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div id="progressInfo" class="small text-muted"></div>
+                        <div id="statusMessage" class="small text-muted"></div>
+                    </div>
+                    <div id="currentVideo" class="small text-muted mt-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div id="qrCodeContainer" class="text-center" style="display: none;">
+                    <h3>请使用B站手机APP扫描二维码登录</h3>
+                    <img id="qrCode" src="" alt="B站登录二维码" style="max-width: 200px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <!-- 分析结果区域，默认隐藏，有分析结果时显示 -->
+                <div id="analysisSection" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h3>内容分类分布</h3>
+                            <div id="categoryChart" class="chart-container"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h3>热门话题分布</h3>
+                            <div id="topicChart" class="chart-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div id="userProfile" class="user-profile-card mb-4">
+                                <div class="profile-header">
+                                    <h3><i class="bi bi-person-lines-fill"></i> 用户画像分析</h3>
+                                </div>
+                                <div class="profile-content"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="profile-section mt-4">
+                                <h4>详细统计</h4>
+                                <div id="detailedStats" class="profile-content">
+                                    <!-- 详细统计数据将在这里动态显示 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加UP主列表弹窗 -->
+    <div class="modal fade" id="upListModal" tabindex="-1" aria-labelledby="upListModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="upListModalLabel">
+                        <i class="bi bi-people-fill me-2"></i>推荐UP主列表
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div id="upList" class="up-list">
+                        <!-- UP主列表将在这里动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let statusCheckInterval;
+
+        // 页面加载时恢复历史消息
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusDiv = document.getElementById('status');
+            const messageHistory = {{ message_history|tojson|safe }};
+            
+            if (messageHistory && messageHistory.length > 0) {
+                messageHistory.forEach(msg => {
+                    if (typeof msg === 'object') {
+                        switch(msg.type) {
+                            case 'qr_code':
+                                // 不恢复二维码显示
+                                break;
+                            case 'progress':
+                                updateProgress(msg);
+                                break;
+                            case 'analyze_progress':
+                                updateAnalyzeProgress(msg);
+                                break;
+                            case 'message':
+                                statusDiv.innerHTML += `<div>${msg.data}</div>`;
+                                break;
+                        }
+                    } else {
+                        statusDiv.innerHTML += `<div>${msg}</div>`;
+                    }
+                });
+                statusDiv.scrollTop = statusDiv.scrollHeight;
+                
+                // 如果有历史数据，启用分析按钮
+                if (messageHistory.some(msg => msg === "爬虫运行完成！")) {
+                    document.getElementById('analyze').disabled = false;
+                }
+            }
+        });
+
+        // 修改清除数据功能
+        document.getElementById('clearData').onclick = function() {
+            if (confirm('确定要清除所有数据吗？这将删除爬取的视频数据和所有历史记录。')) {
+                fetch('/clear_data')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // 显示进度条区域，隐藏分析结果
+                            document.getElementById('progressContainer').style.display = 'none';
+                            document.getElementById('analysisSection').style.display = 'none';
+                            
+                            // 清除页面上的所有数据显示
+                            document.getElementById('status').innerHTML = '';
+                            document.getElementById('qrCodeContainer').style.display = 'none';
+                            
+                            // 重置图表
+                            if (window.categoryChart) {
+                                categoryChart.clear();
+                            }
+                            if (window.topicChart) {
+                                topicChart.clear();
+                            }
+                            
+                            // 重置按钮状态
+                            document.getElementById('analyze').disabled = true;
+                            
+                            // 显示成功消息
+                            alert('数据已成功清除！');
+                        } else {
+                            alert('清除数据失败：' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        alert('清除数据时出错：' + error);
+                    });
+            }
+        };
+
+        // 更新进度条的辅助函数
+        function updateProgress(msg, type = 'crawl') {
+            const progressContainer = document.getElementById('progressContainer');
+            const progressTitle = document.getElementById('progressTitle');
+            const progressBar = document.getElementById('progressBar');
+            const progressInfo = document.getElementById('progressInfo');
+            const currentVideo = document.getElementById('currentVideo');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            progressContainer.style.display = 'block';
+            progressTitle.textContent = type === 'crawl' ? '爬取进度' : '分进度';
+            
+            if (type === 'crawl') {
+                if (msg.data.percentage) {
+                    progressBar.style.width = `${msg.data.percentage}%`;
+                    progressBar.setAttribute('aria-valuenow', msg.data.percentage);
+                    progressInfo.textContent = `进度：${msg.data.current}/${msg.data.total} (${msg.data.percentage}%)`;
+                }
+                if (msg.data.title) {
+                    currentVideo.textContent = `当前视频：${msg.data.title} - UP主：${msg.data.up_name}`;
+                }
+                currentVideo.style.display = 'block';
+            } else {
+                progressBar.style.width = `${msg.data.progress}%`;
+                progressBar.setAttribute('aria-valuenow', msg.data.progress);
+                progressInfo.textContent = msg.data.message;
+                currentVideo.style.display = 'none';
+            }
+        }
+
+        function updateAnalyzeProgress(msg) {
+            const analyzeProgressContainer = document.getElementById('analyzeProgressContainer');
+            const analyzeProgressBar = document.getElementById('analyzeProgressBar');
+            const analyzeProgressInfo = document.getElementById('analyzeProgressInfo');
+            
+            analyzeProgressContainer.style.display = 'block';
+            analyzeProgressBar.style.width = `${msg.data.progress}%`;
+            analyzeProgressBar.setAttribute('aria-valuenow', msg.data.progress);
+            analyzeProgressInfo.textContent = msg.data.message;
+        }
+
+        function startCrawl() {
+            const num = document.getElementById('crawlNum').value;
+            fetch(`/start_crawl?num=${num}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "started") {
+                        document.getElementById('startCrawl').disabled = true;
+                        startStatusCheck();
+                    }
+                });
+        }
+
+        function startStatusCheck() {
+            let lastVideoCount = 0;
+            let analysisStarted = false;
+            
+            statusCheckInterval = setInterval(() => {
+                fetch('/get_status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.messages.length > 0) {
+                            data.messages.forEach(msg => {
+                                if (typeof msg === 'object') {
+                                    switch(msg.type) {
+                                        case 'qr_code':
+                                            document.getElementById('qrCodeContainer').style.display = 'block';
+                                            document.getElementById('qrCode').src = msg.data;
+                                            document.getElementById('progressContainer').style.display = 'block';
+                                            document.getElementById('currentVideo').style.display = 'none';
+                                            break;
+                                        case 'progress':
+                                            document.getElementById('qrCodeContainer').style.display = 'none';
+                                            updateProgress(msg, 'crawl');
+                                            
+                                            // 检查视频数量是否达到10个
+                                            const currentCount = msg.data.current || 0;
+                                            if (currentCount >= 10) {
+                                                if (!analysisStarted) {
+                                                    analysisStarted = true;
+                                                    // 显示分析结果区域
+                                                    document.getElementById('analysisSection').style.display = 'block';
+                                                }
+                                                // 每当收集到新视频时更新分析
+                                                if (currentCount > lastVideoCount) {
+                                                    lastVideoCount = currentCount;
+                                                    setTimeout(updateCurrentAnalysis, 1000);  // 延迟1秒执行分析
+                                                }
+                                            }
+                                            break;
+                                        case 'analyze_progress':
+                                            updateProgress(msg, 'analyze');
+                                            break;
+                                        case 'message':
+                                            document.getElementById('statusMessage').textContent = msg.data;
+                                            break;
+                                    }
+                                }
+                            });
+                        }
+                    });
+            }, 1000);
+        }
+
+        function analyzeData() {
+            document.getElementById('analyze').disabled = true;
+            
+            // 重置进度条
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressInfo = document.getElementById('progressInfo');
+            
+            // 显示分析进度条
+            if (progressContainer) {
+                progressContainer.style.display = 'block';
+                if (progressBar) progressBar.style.width = '0%';
+                if (progressInfo) progressInfo.textContent = '准备开始分析...';
+            }
+
+            // 启动状态检查
+            let analyzeCheckInterval = setInterval(() => {
+                fetch('/get_status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.messages.length > 0) {
+                            data.messages.forEach(msg => {
+                                if (typeof msg === 'object' && msg.type === 'analyze_progress') {
+                                    updateProgress(msg, 'analyze');
+                                }
+                            });
+                        }
+                    })
+                    .catch(error => console.error('获取状态失败:', error));
+            }, 500);
+            
+            // 发送分析请求
+            fetch('/analyze')
+                .then(response => response.json())
+                .then(data => {
+                    clearInterval(analyzeCheckInterval);
+                    if (data.status === "success") {
+                        displayAnalysis(data.data);
+                    } else {
+                        showError(data.message);
+                    }
+                })
+                .catch(error => {
+                    clearInterval(analyzeCheckInterval);
+                    showError(`分析失败: ${error}`);
+                })
+                .finally(() => {
+                    document.getElementById('analyze').disabled = false;
+                    if (progressContainer) {
+                        setTimeout(() => {
+                            progressContainer.style.display = 'none';
+                        }, 2000);
+                    }
+                });
+        }
+
+        // 修改显示分析结果的函数
+        function formatUserProfile(description) {
+            // 解析描述文本
+            const sections = description.split('\n\n').filter(s => s.trim());
+            let html = '';
+
+            sections.forEach(section => {
+                if (section.trim()) {
+                    const [title, ...content] = section.trim().split('\n');
+                    const sectionTitle = title.replace('：', '').trim();
+                    
+                    html += `
+                        <div class="profile-section">
+                            <h4>${sectionTitle}</h4>
+                            <ul>
+                                ${content.map(line => {
+                                    // 处理百分比和数字
+                                    line = line.replace(/(\d+\.?\d*)%/g, '<span class="profile-stat">$1%</span>');
+                                    line = line.replace(/：/g, ': ');
+                                    
+                                    // 如果是推荐UP主的行，添加按钮而不是链接
+                                    if (line.includes('可以关注') && line.includes('等UP主的更新')) {
+                                        return `<li>${line.replace(/\[.*?\]/, '<button type="button" class="btn btn-sm btn-primary" onclick="showUpList()">查看UP主列表</button>')}</li>`;
+                                    }
+                                    
+                                    return `<li>${line.replace(/^\d+\.\s*/, '')}</li>`;
+                                }).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+            });
+
+            return html;
+        }
+
+        function displayAnalysis(data) {
+            // 显示分析结果区域
+            const analysisSection = document.getElementById('analysisSection');
+            if (!analysisSection) {
+                console.error('找不到分析结果区域元素');
+                return;
+            }
+            analysisSection.style.display = 'block';
+
+            // 显示用户画像描述
+            const profileContent = document.querySelector('#userProfile .profile-content');
+            if (!profileContent) {
+                console.error('找不到用户画像内容元素');
+                return;
+            }
+            profileContent.innerHTML = formatUserProfile(data['用户画像描述']);
+
+            // 绘制内容分类饼图
+            const categoryChartElement = document.getElementById('categoryChart');
+            if (categoryChartElement) {
+                const categoryChart = echarts.init(categoryChartElement);
+                const categoryData = Object.entries(data['内容偏好'])
+                    .map(([name, value]) => ({ name, value }))
+                    .sort((a, b) => b.value - a.value);
+
+                // 定义饼图的颜色
+                const colors = [
+                    '#5470c6', '#91cc75', '#fac858', '#ee6666',
+                    '#73c0de', '#3ba272', '#fc8452', '#9a60b4'
+                ];
+
+                categoryChart.setOption({
+                    title: {
+                        text: '内容分类分布',
+                        left: 'center',
+                        top: 10,
+                        textStyle: {
+                            fontSize: 16,
+                            fontWeight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: function(params) {
+                            return `${params.name}: ${params.percent}%`;
+                        },
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        borderColor: '#ccc',
+                        borderWidth: 1,
+                        textStyle: {
+                            color: '#333'
+                        }
+                    },
+                    series: [{
+                        type: 'pie',
+                        radius: ['35%', '60%'],
+                        center: ['50%', '55%'],
+                        avoidLabelOverlap: true,
+                        itemStyle: {
+                            borderColor: '#fff',
+                            borderWidth: 2,
+                            borderRadius: 5,
+                            color: function(params) {
+                                return colors[params.dataIndex % colors.length];
+                            }
+                        },
+                        label: {
+                            show: true,
+                            position: 'outside',
+                            formatter: '{b}',
+                            fontSize: 14,
+                            fontWeight: 'bold',
+                            color: '#333',
+                            alignTo: 'labelLine',
+                            distanceToLabelLine: 5
+                        },
+                        labelLine: {
+                            show: true,
+                            length: 15,
+                            length2: 10,
+                            smooth: true,
+                            lineStyle: {
+                                width: 2,
+                                type: 'solid'
+                            }
+                        },
+                        emphasis: {
+                            label: {
+                                show: true,
+                                fontSize: 16,
+                                fontWeight: 'bold'
+                            },
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        data: categoryData.map((item, index) => ({
+                            ...item,
+                            itemStyle: {
+                                color: colors[index % colors.length]
+                            }
+                        }))
+                    }]
+                });
+                window.categoryChart = categoryChart;
+            } else {
+                console.error('找不到分类图表元素');
+            }
+
+            // 绘制热门话题柱状图
+            const topicChartElement = document.getElementById('topicChart');
+            if (topicChartElement) {
+                const topicChart = echarts.init(topicChartElement);
+                const topicData = Object.entries(data['热门话题'])
+                    .map(([name, value]) => ({ name, value }))
+                    .sort((a, b) => b.value - a.value);
+
+                // 定义渐变色
+                const gradientColors = [
+                    ['#83bff6', '#188df0'],  // 蓝色渐变
+                    ['#91cc75', '#2f9e44'],  // 绿色渐变
+                    ['#fac858', '#d48806'],  // 黄色渐变
+                    ['#ee6666', '#c41d7f'],  // 红色渐变
+                    ['#73c0de', '#0960bd']   // 浅蓝渐变
+                ];
+
+                topicChart.setOption({
+                    title: {
+                        text: '热门话题分布',
+                        left: 'center',
+                        top: 10,
+                        textStyle: {
+                            fontSize: 16,
+                            fontWeight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        formatter: function(params) {
+                            const data = params[0];
+                            return `${data.name}<br/>视频数量：${data.value}`;
+                        }
+                    },
+                    grid: {
+                        left: '5%',
+                        right: '5%',
+                        bottom: '15%',
+                        top: '15%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: topicData.map(item => item.name),
+                        axisLabel: {
+                            interval: 0,
+                            rotate: 45,
+                            fontSize: 12,
+                            color: '#666'
+                        },
+                        axisTick: {
+                            alignWithLabel: true
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#ddd'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: '视频数量',
+                        nameTextStyle: {
+                            color: '#666'
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                type: 'dashed',
+                                color: '#eee'
+                            }
+                        },
+                        axisLine: {
+                            show: false
+                        },
+                        axisTick: {
+                            show: false
+                        }
+                    },
+                    series: [{
+                        type: 'bar',
+                        barWidth: '40%',
+                        data: topicData.map((item, index) => ({
+                            value: item.value,
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    {
+                                        offset: 0,
+                                        color: gradientColors[index % gradientColors.length][0]
+                                    },
+                                    {
+                                        offset: 1,
+                                        color: gradientColors[index % gradientColors.length][1]
+                                    }
+                                ]),
+                                borderRadius: [4, 4, 0, 0]  // 柱状顶部圆角
+                            }
+                        })),
+                        label: {
+                            show: true,
+                            position: 'top',
+                            fontSize: 12,
+                            color: '#666',
+                            formatter: '{c}',
+                            distance: 10
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0,0,0,0.2)'
+                            }
+                        }
+                    }]
+                });
+                window.topicChart = topicChart;
+            } else {
+                console.error('找不到话题图表元素');
+            }
+
+            // 添加详细统计显示
+            const detailedStats = document.getElementById('detailedStats');
+            if (detailedStats) {
+                let statsHtml = '';
+                
+                // 内容偏好
+                if (data['内容偏好']) {
+                    statsHtml += `
+                        <div class="stats-section">
+                            <h5><i class="bi bi-pie-chart-fill"></i> 内容偏好</h5>
+                            <div class="stats-grid">
+                                ${Object.entries(data['内容偏好'])
+                                    .sort((a, b) => b[1] - a[1])
+                                    .map(([category, count]) => `
+                                        <div class="stats-item">
+                                            <div class="stats-label">${category}</div>
+                                            <div class="stats-value">${count}</div>
+                                            <div class="stats-bar" style="width: ${count * 100 / Math.max(...Object.values(data['内容偏好']))}%"></div>
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 热门话题
+                if (data['热门话题']) {
+                    statsHtml += `
+                        <div class="stats-section">
+                            <h5><i class="bi bi-hash"></i> 热门话题</h5>
+                            <div class="stats-grid">
+                                ${Object.entries(data['热门话题'])
+                                    .sort((a, b) => b[1] - a[1])
+                                    .map(([topic, count]) => `
+                                        <div class="stats-item">
+                                            <div class="stats-label">${topic}</div>
+                                            <div class="stats-value">${count}</div>
+                                            <div class="stats-bar" style="width: ${count * 100 / Math.max(...Object.values(data['热门话题']))}%"></div>
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 视频热度分析
+                if (data['视频热度分析']) {
+                    const playStats = data['视频热度分析'];
+                    statsHtml += `
+                        <div class="stats-section">
+                            <h5><i class="bi bi-graph-up"></i> 视频热度分析</h5>
+                            <div class="stats-overview">
+                                <div class="stats-card">
+                                    <div class="stats-card-title">平均播放量</div>
+                                    <div class="stats-card-value">${Math.round(playStats['平均播放量']).toLocaleString()}</div>
+                                </div>
+                                <div class="stats-card">
+                                    <div class="stats-card-title">最高播放量</div>
+                                    <div class="stats-card-value">${playStats['最高播放量'].toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div class="distribution-grid">
+                                ${Object.entries(playStats['播放量分布'])
+                                    .map(([range, count]) => `
+                                    <div class="distribution-item">
+                                        <div class="distribution-label">${range}</div>
+                                        <div class="distribution-value">${count}</div>
+                                        <div class="distribution-bar" style="width: ${count * 100 / Object.values(playStats['播放量分布']).reduce((a, b) => a + b, 0)}%"></div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                detailedStats.innerHTML = statsHtml;
+            }
+
+            // 如果爬虫已完成，才保存分析结果
+            const statusMessage = document.getElementById('statusMessage');
+            if (statusMessage && statusMessage.textContent.includes('爬取完成')) {
+                fetch('/save_analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                }).catch(error => console.error('保存分析结果失败:', error));
+            }
+        }
+
+        // 添加错误处理的辅助函数
+        function showError(message) {
+            const analysisSection = document.getElementById('analysisSection');
+            if (analysisSection) {
+                analysisSection.style.display = 'block';
+                analysisSection.innerHTML = `
+                    <div class="alert alert-danger">
+                        ${message}
+                    </div>
+                `;
+            } else {
+                console.error('无法显示错误信息:', message);
+            }
+        }
+
+        // 修改 updateCurrentAnalysis 函数
+        function updateCurrentAnalysis() {
+            fetch('/analyze_current')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // 显示分析结果区域
+                        document.getElementById('analysisSection').style.display = 'block';
+                        // 更新图表和用户画像
+                        displayAnalysis(data.data);
+                    } else if (data.status === "waiting") {
+                        // 等待数据时不显示错误，继续等待
+                        console.log(data.message);
+                    } else if (data.status === "error") {
+                        console.error('分析错误:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('更新分析失败:', error);
+                });
+        }
+
+        // 修改页面加载时的检查逻辑
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageHistory = {{ message_history|tojson|safe }};
+            
+            // 检查是否有分析结果
+            let lastAnalysisResult = null;
+            if (messageHistory && messageHistory.length > 0) {
+                // 从后往前查找最新的分析结果
+                for (let i = messageHistory.length - 1; i >= 0; i--) {
+                    const msg = messageHistory[i];
+                    if (msg && msg.type === 'analysis_result') {
+                        lastAnalysisResult = msg.data;
+                        break;
+                    }
+                }
+            }
+
+            // 如果找到分析结果，显示它
+            if (lastAnalysisResult) {
+                displayAnalysis(lastAnalysisResult);
+                // 如果有分析结果，启用分析按钮
+                document.getElementById('analyze').disabled = false;
+            } else {
+                // 如果没有分析结果，检查是否有爬虫完成的消息
+                const hasCrawlCompleted = messageHistory.some(msg => 
+                    (typeof msg === 'string' && msg === "爬虫运行完成！") ||
+                    (msg && msg.type === 'message' && msg.data === "爬虫运行完成！")
+                );
+                
+                // 如果爬虫已完成但没有分析结果，显示进度条区域
+                if (hasCrawlCompleted) {
+                    document.getElementById('analyze').disabled = false;
+                    document.getElementById('progressContainer').style.display = 'block';
+                    document.getElementById('statusMessage').textContent = "爬虫运行完成！";
+                }
+
+                // 恢复最后的进度状态
+                const lastProgress = messageHistory.filter(msg => 
+                    msg && msg.type === 'progress'
+                ).pop();
+                
+                if (lastProgress) {
+                    updateProgress(lastProgress, 'crawl');
+                }
+            }
+
+            // 恢复状态消息
+            const statusMessages = messageHistory.filter(msg => 
+                (typeof msg === 'string') || (msg && msg.type === 'message')
+            );
+            
+            if (statusMessages.length > 0) {
+                const statusMessage = document.getElementById('statusMessage');
+                const lastMessage = statusMessages[statusMessages.length - 1];
+                statusMessage.textContent = typeof lastMessage === 'string' ? 
+                    lastMessage : lastMessage.data;
+            }
+        });
+
+        document.getElementById('startCrawl').onclick = startCrawl;
+        document.getElementById('analyze').onclick = analyzeData;
+
+        // 窗口小改变时重绘图
+        window.onresize = function() {
+            const charts = document.querySelectorAll('.chart-container');
+            charts.forEach(container => {
+                const chart = echarts.getInstanceByDom(container);
+                if (chart) {
+                    chart.resize();
+                }
+            });
+        };
+
+        // 创建一个全局的 Modal 实例
+        let upListModal;
+        
+        // 在页面加载完成后初始化 Modal
+        document.addEventListener('DOMContentLoaded', function() {
+            upListModal = new bootstrap.Modal(document.getElementById('upListModal'));
+        });
+
+        function showUpList() {
+            const upList = document.getElementById('upList');
+            upList.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">加载中...</div></div>';
+            
+            // 显示弹窗
+            upListModal.show();
+            
+            // 从视频数据中获取UP主信息
+            fetch('bilibili_videos.json')
+                .then(response => response.json())
+                .then(videos => {
+                    // 统计UP主出现次数
+                    const upCount = {};
+                    const upLinks = {};
+                    videos.forEach(video => {
+                        if (video.up_name && video.up_name !== '未知' && video.up_name !== '') {
+                            upCount[video.up_name] = (upCount[video.up_name] || 0) + 1;
+                            upLinks[video.up_name] = video.up_link;
+                        }
+                    });
+
+                    // 转换为数组并排序
+                    const sortedUps = Object.entries(upCount)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 10);
+
+                    // 清空加载提示
+                    upList.innerHTML = '';
+
+                    // 生成UP主列表
+                    sortedUps.forEach(([upName, count], index) => {
+                        const upLink = upLinks[upName];
+                        if (upLink) {
+                            const listItem = document.createElement('a');
+                            listItem.href = upLink;
+                            listItem.target = "_blank";
+                            listItem.className = "up-list-item position-relative";
+                            
+                            // 获取UP主名字的第一个字符作为头像
+                            const avatarChar = upName.charAt(0);
+                            
+                            // 设置排名样式
+                            const rankClass = index < 3 ? `rank-${index + 1}` : 'rank-other';
+                            
+                            listItem.innerHTML = `
+                                <div class="up-avatar">
+                                    ${avatarChar}
+                                </div>
+                                <div class="up-info">
+                                    <div class="up-name">${upName}</div>
+                                </div>
+                                <div class="up-rank ${rankClass}">
+                                    ${index + 1}
+                                </div>
+                            `;
+                            upList.appendChild(listItem);
+                        }
+                    });
+                })
+                .catch(error => {
+                    upList.innerHTML = `
+                        <div class="alert alert-danger m-3">
+                            加载UP主列表失败: ${error}
+                        </div>
+                    `;
+                    console.error('获取UP主列表失败:', error);
+                });
+        }
+    </script>
+
+    <!-- 在页面顶部引入Bootstrap的JavaScript -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
