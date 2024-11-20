@@ -1,0 +1,38 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local development settings
+.env
+.env.local
+.env.*.local
+
+# Data files
+*.vec
+message_history.json
+bilibili_videos.json
+
+# Log files
+*.log
+
+# System files
+.DS_Store
+Thumbs.db 
